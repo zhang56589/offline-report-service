@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "mybatis-3-mapper.dtd">
+
+<mapper namespace="com.report.mapper.ReportTaskMapper">
+
+    <!-- 改名，不要用insert，避免和BaseMapper冲突 -->
+    <insert id="insertTask" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO report_task(task_id,report_type,task_status,file_path,download_url,fail_msg,total_count,finish_count,expire_time)
+        VALUES(#{taskId},#{reportType},#{taskStatus},#{filePath},#{downloadUrl},#{failMsg},#{totalCount},#{finishCount},#{expireTime})
+    </insert>
+
+    <!-- 改名，不要用update -->
+    <update id="updateTask">
+        UPDATE report_task
+        <set>
+            <if test="taskStatus != null">task_status=#{taskStatus},</if>
+            <if test="filePath != null">file_path=#{filePath},</if>
+            <if test="downloadUrl != null">download_url=#{downloadUrl},</if>
+            <if test="failMsg != null">fail_msg=#{failMsg},</if>
+            <if test="totalCount != null">total_count=#{totalCount},</if>
+            <if test="finishCount != null">finish_count=#{finishCount},</if>
+            <if test="expireTime != null">expire_time=#{expireTime},</if>
+        </set>
+        WHERE task_id=#{taskId}
+    </update>
+
+    <select id="selectByTaskId" resultType="com.report.entity.ReportTask">
+        SELECT * FROM report_task WHERE task_id=#{taskId}
+    </select>
+
+    <select id="selectRunningTimeoutTasks" resultType="com.report.entity.ReportTask">
+        SELECT * FROM report_task WHERE task_status=1 AND TIMESTAMPDIFF(MINUTE,update_time,NOW()) &gt; #{timeoutMinute}
+    </select>
+
+    <select id="selectExpireTasks" resultType="com.report.entity.ReportTask">
+        SELECT * FROM report_task WHERE expire_time &lt; NOW()
+    </select>
+
+</mapper>
