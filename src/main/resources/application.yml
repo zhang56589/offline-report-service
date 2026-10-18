@@ -11,23 +11,21 @@ spring:
     port: 6379
     database: 0
   quartz:
-    job‑store‑type: memory
+    job-store-type: memory
     properties:
       org.quartz.threadPool.threadCount: 5
 
 report:
   file:
-    temp‑path: ./report_temp/
-    expire‑day: 7
+    temp-path: ./report_temp/
+    expire-day: 7
 
 task:
   pool:
-    core‑size: 4
-    max‑size: 8
-    queue‑capacity: 20
+    core-size: 4
+    max-size: 8
+    queue-capacity: 20
 
 mybatis:
-  mapper‑locations: classpath:mapper/*.xml
-  type‑aliases‑package: com.report.entity
-
-
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.report.entity

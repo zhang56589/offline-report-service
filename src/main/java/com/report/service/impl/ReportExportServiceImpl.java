@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.report.entity.ReportQuery;
 import com.report.entity.ReportStat;
 import com.report.entity.ReportTask;
+import com.report.entity.TaskStatusEnum;
 import com.report.mapper.ReportTaskMapper;
 import com.report.service.ReportExportService;
 import com.report.service.ReportStatService;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,14 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
     private final ReportStatService reportStatService;
     private final RedissonClient redissonClient;
 
+    /** 注入自身代理，解决 @Async 自调用不生效问题 */
+    @Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private ReportExportService self;
+
+    @Value("${report.file.expire-day:7}")
+    private int expireDay;
+
     public ReportExportServiceImpl(ReportStatService reportStatService, RedissonClient redissonClient) {
         this.reportStatService = reportStatService;
         this.redissonClient = redissonClient;
@@ -38,7 +49,7 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
     private static final String EXPORT_LOCK = "report:export:lock:";
 
     @Override
-    @Async
+    @Async("reportExportPool")
     public void asyncExportTask(Long taskId, LocalDate start, LocalDate end) {
         RLock lock = redissonClient.getLock(EXPORT_LOCK + taskId);
         try {
@@ -46,8 +57,11 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
                 return;
             }
             ReportTask task = getById(taskId);
-            //统一状态 PROCESSING
-            task.setTaskStatus("PROCESSING");
+            if (task == null) {
+                return;
+            }
+            // 统一状态为 RUN（执行中）
+            task.setTaskStatus(TaskStatusEnum.RUN.status);
             updateById(task);
 
             System.out.println("【导出】start=" + start + " end=" + end);
@@ -60,18 +74,22 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
 
             EasyExcel.write(filePath, ReportStat.class).sheet("统计报表").doWrite(data);
 
-            task.setTaskStatus("SUC");
+            task.setTaskStatus(TaskStatusEnum.SUC.status);
             task.setFilePath(filePath);
-            //int转Long，解决编译报错
             task.setTotalCount((long) data.size());
+            task.setFinishCount((long) data.size());
+            task.setUpdateTime(LocalDateTime.now());
             updateById(task);
 
         } catch (Exception e) {
             e.printStackTrace();
             ReportTask task = getById(taskId);
-            task.setTaskStatus("FAIL");
-            task.setFailMsg(e.getMessage());
-            updateById(task);
+            if (task != null) {
+                task.setTaskStatus(TaskStatusEnum.FAIL.status);
+                task.setFailMsg(e.getMessage());
+                task.setUpdateTime(LocalDateTime.now());
+                updateById(task);
+            }
         } finally {
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
@@ -84,7 +102,6 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("UTF-8");
         String fileName = URLEncoder.encode("统计报表", StandardCharsets.UTF_8.name());
-        //英文半角横杠，消除http头警告
         response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ".xlsx");
         List<ReportStat> list = reportStatService.listRangeDate(start, end);
         EasyExcel.write(response.getOutputStream(), ReportStat.class).sheet("统计报表").doWrite(list);
@@ -94,10 +111,17 @@ public class ReportExportServiceImpl extends ServiceImpl<ReportTaskMapper, Repor
     public String createTask(ReportQuery query) {
         ReportTask reportTask = new ReportTask();
         reportTask.setTaskId(UUID.randomUUID().toString().replace("-", ""));
-        reportTask.setTaskStatus("WAIT");
+        reportTask.setReportType("STAT");
+        reportTask.setTaskStatus(TaskStatusEnum.WAIT.status);
+        reportTask.setTotalCount(0L);
+        reportTask.setFinishCount(0L);
         reportTask.setCreateTime(LocalDateTime.now());
+        reportTask.setUpdateTime(LocalDateTime.now());
+        reportTask.setExpireTime(LocalDateTime.now().plusDays(expireDay));
         save(reportTask);
-        asyncExportTask(reportTask.getId(), query.getStartDate(), query.getEndDate());
+
+        // 通过自身代理调用，使 @Async 生效
+        self.asyncExportTask(reportTask.getId(), query.getStartDate(), query.getEndDate());
         return reportTask.getTaskId();
     }
 

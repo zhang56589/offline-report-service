@@ -31,7 +31,7 @@
     </select>
 
     <select id="selectRunningTimeoutTasks" resultType="com.report.entity.ReportTask">
-        SELECT * FROM report_task WHERE task_status=1 AND TIMESTAMPDIFF(MINUTE,update_time,NOW()) &gt; #{timeoutMinute}
+        SELECT * FROM report_task WHERE task_status='RUN' AND TIMESTAMPDIFF(MINUTE,update_time,NOW()) > #{timeoutMinute}
     </select>
 
     <select id="selectExpireTasks" resultType="com.report.entity.ReportTask">

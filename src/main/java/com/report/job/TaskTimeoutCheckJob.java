@@ -29,7 +29,7 @@ public class TaskTimeoutCheckJob implements Job {
         System.out.println("本次检测超时任务数量：" + timeoutList.size());
 
         for (ReportTask task : timeoutList) {
-            task.setTaskStatus(TaskStatusEnum.FAIL.name());
+            task.setTaskStatus(TaskStatusEnum.FAIL.status);
             task.setFailMsg("任务执行超时");
 
             reportTaskMapper.updateById(task);

@@ -8,11 +8,11 @@ import java.util.concurrent.*;
 @Configuration
 public class ThreadPoolConfig {
 
-    @Value("${task.pool.core‑size}")
+    @Value("${task.pool.core-size}")
     private int coreSize;
-    @Value("${task.pool.max‑size}")
+    @Value("${task.pool.max-size}")
     private int maxSize;
-    @Value("${task.pool.queue‑capacity}")
+    @Value("${task.pool.queue-capacity}")
     private int queueCapacity;
 
     @Bean("reportExportPool")

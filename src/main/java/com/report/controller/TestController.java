@@ -27,7 +27,7 @@ public class TestController {
         //查询过期任务
         List<ReportTask> expireList = reportTaskMapper.selectExpireTasks();
         //测试stat查询
-        List<ReportStat> statList = reportStatMapper.selectByDate("2026‑10‑04");
+        List<ReportStat> statList = reportStatMapper.selectByDate("2026-10-04");
 
         return "超时任务数量:"+timeoutList.size()+" | 过期任务数量:"+expireList.size()+" | stat数量:"+statList.size();
     }
